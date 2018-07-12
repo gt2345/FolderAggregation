@@ -1,58 +1,84 @@
-from os import walk
 import os
 import time
+import itertools
+from collections import deque
 
 # take input from user
-input = input('Please Enter the absolute path for a directory: ')
-path = input
+#input = input('Please Enter the absolute path for a directory: ')
+input = '/Users/root1/Documents/unixstuff'
 
 # dictionary to store modification times
-# maxOfM and maxNumOfTime to store current most frequent modified time
+# maxOfM: [current most frequent modified time, track #times]
 dicTime = {}
-maxOfM = None
-maxNumOfTime = 0
+maxOfM = [None, 0]
 
 # dictionary to store extensions
-# maxOfE and maxNumOfExt to store current most frequent extension
+# maxOfE: [current most frequent extension, track #times]
 dicExt = {}
-maxOfE = None
-maxNumOfExt = 0
+maxOfE = [None, 0]
 
-# walk through given path
-for (dirpath, dirnames, filenames) in walk(path):
-    for file in (filenames + dirnames):
-        try:
-            filepath = dirpath + '/' + file
-            # handle extensions
-            if not os.path.isdir(filepath):
-                extension = os.path.splitext(file)[-1]
-                if extension is not '':
-                    if extension in dicExt:
-                        dicExt[extension] += 1
-                    else:
-                        dicExt[extension] = 1
-                    # update maximum
-                    if maxNumOfExt < dicExt[extension]:
-                        maxOfE = extension
-                        maxNumOfExt = dicExt[extension]
 
+# store modification time in dicTime
+# if folder: recursion
+# if file: store extension in dicExt
+def fileHandler(filePath):
+    try:
+        if os.path.exists(filePath):
             # handle modification times
-            statbuf = os.stat(filepath)
+            statbuf = os.stat(filePath)
             mtime = time.strftime('%m/%d/%Y', time.gmtime(statbuf.st_mtime))
             if mtime in dicTime:
                 dicTime[mtime] += 1
             else:
                 dicTime[mtime] = 1
             # update maximum
-            if maxNumOfTime < dicTime[mtime]:
-                maxOfM = mtime
-                maxNumOfTime = dicTime[mtime]
-        except (FileNotFoundError, OSError):
-            print('File Not Included {}'.format(filepath))
+            if maxOfM[1] < dicTime[mtime]:
+                maxOfM[0] = mtime
+                maxOfM[1] = dicTime[mtime]
+
+            # handle extensions
+            if not os.path.isdir(filePath):
+                extension = os.path.splitext(filePath)[-1]
+                if extension is not '':
+                    if extension in dicExt:
+                        dicExt[extension] += 1
+                    else:
+                        dicExt[extension] = 1
+                    # update maximum
+                    if maxOfE[1] < dicExt[extension]:
+                        maxOfE[0] = extension
+                        maxOfE[1] = dicExt[extension]
 
 
-if maxOfM == None and maxOfE == None:
+    except (FileNotFoundError, OSError, PermissionError):
+        print('File Not Included {}'.format(filePath))
+
+
+# walk through given path
+# queue to store unvisited folders this level, chained to next level
+queue = iter([input])
+while queue:
+    # if iterator has next
+    try:
+        curfolder = next(queue)
+    except StopIteration:
+        break
+    dirs = []
+    try:
+        for file in os.scandir(curfolder):
+            fileHandler(os.path.join(curfolder, file))
+            if os.path.isdir(file):
+                dirs.append(os.path.join(curfolder, file))
+    except (FileNotFoundError, OSError, PermissionError):
+        print('File Not Included {}'.format(curfolder))
+    if dirs:
+        # chain the sub-level folders to queue
+        queue = itertools.chain(queue, dirs)
+
+
+
+if maxOfM[0] is None and maxOfE[0] is None:
     print('This is not a valid directory.')
 else:
-    print('Day of the most modified is: {}'.format(maxOfM))
-    print('Most popular extention is: {}'.format(maxOfE))
+    print('Day of the most modified is: {}'.format(maxOfM[0]))
+    print('Most popular extention is: {}'.format(maxOfE[0]))
