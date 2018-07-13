@@ -1,7 +1,7 @@
 import os
 import time
 import itertools
-from collections import deque
+
 
 # take input from user
 input = input('Please Enter the absolute path for a directory: ')
@@ -19,7 +19,6 @@ maxOfE = [None, 0]
 
 
 # store modification time in dicTime
-# if folder: recursion
 # if file: store extension in dicExt
 def fileHandler(filePath):
     print('File Included: {}'.format(filePath))
@@ -52,26 +51,34 @@ def fileHandler(filePath):
 
 
 # walk through given path
-# queue to store unvisited folders this level, chained to next level
-queue = iter([input])
-while queue:
-    # if iterator has next
-    try:
-        curfolder = next(queue)
-    except StopIteration:
-        break
-    if os.path.exists(curfolder):
+def myWalk(input):
+    if os.path.exists(input):
         dirs = []
         try:
-            for file in os.scandir(curfolder):
-                fileHandler(os.path.join(curfolder, file))
-                if os.path.isdir(file):
-                    dirs.append(os.path.join(curfolder, file))
-        except (FileNotFoundError, OSError, PermissionError):
-            print('File Not Included: {}'.format(curfolder))
-        if dirs:
-            # chain the sub-level folders to queue
-            queue = itertools.chain(queue, dirs)
+            scandir_it = os.scandir(input)
+            with scandir_it:
+                while True:
+                    try:
+                        entry = next(scandir_it)
+                    except StopIteration:
+                        break
+
+                    fileHandler(os.path.join(input, entry))
+                    if os.path.isdir(entry):
+                        dirs.append(entry)
+
+                yield dirs
+                for dirname in dirs:
+                    yield from myWalk(os.path.join(input, dirname))
+
+
+        except PermissionError:
+            print('File Not Included: {}'.format(input))
+
+
+
+for x in myWalk(input):
+    pass
 
 
 
